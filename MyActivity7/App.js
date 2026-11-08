@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -138,6 +137,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Prevent overlapping save operations
+  const savingRef = useRef(false);
+
   const headerAnim = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -185,18 +187,19 @@ export default function App() {
 
   // Save the updated task list
   const saveTasks = async (updatedTasks) => {
-    if (saving) return false;
+    if (savingRef.current) return false;
 
+    savingRef.current = true;
     setSaving(true);
 
     try {
-      // Convert the array into JSON text
+      // Convert the task array into JSON text
       const jsonValue = JSON.stringify(updatedTasks);
 
-      // Save JSON text to device storage
+      // Save the JSON data on the device
       await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
 
-      // Update the displayed task list
+      // Update the task list on the screen
       setTasks(updatedTasks);
 
       return true;
@@ -205,6 +208,7 @@ export default function App() {
       Alert.alert('Error', 'Unable to save your changes.');
       return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -285,7 +289,7 @@ export default function App() {
     Keyboard.dismiss();
   };
 
-  // Delete a task
+  // Delete a task after confirmation
   const deleteTask = (id) => {
     Alert.alert(
       'Delete Task',
@@ -329,6 +333,7 @@ export default function App() {
     ]).start();
   };
 
+  // Choose whether to add a new task or update an existing one
   const handleMainAction = () => {
     animateButton();
 
@@ -345,7 +350,7 @@ export default function App() {
   const progress =
     tasks.length > 0 ? completedCount / tasks.length : 0;
 
-  // Display loading screen
+  // Display loading screen while tasks are being loaded
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -418,6 +423,7 @@ export default function App() {
             ]}
           />
         </View>
+
         <Text style={styles.progressCaption}>
           Keep going! Every little step counts.
         </Text>
