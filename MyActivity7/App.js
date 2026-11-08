@@ -18,6 +18,7 @@ const STORAGE_KEY = 'campus_quest_tasks';
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [taskTitle, setTaskTitle] = useState('');
+  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Load saved tasks when the app starts
@@ -39,7 +40,7 @@ export default function App() {
     loadTasks();
   }, []);
 
-  // Save changes to AsyncStorage
+  // Save the task list to local storage
   const saveTasks = async (updatedTasks) => {
     try {
       await AsyncStorage.setItem(
@@ -53,7 +54,7 @@ export default function App() {
     }
   };
 
-  // Create a new task
+  // Add a new task
   const addTask = () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
@@ -70,15 +71,43 @@ export default function App() {
     setTaskTitle('');
   };
 
-  // Update a task's completion status
+  // Mark a task as completed or pending
   const toggleTask = (id) => {
     const updatedTasks = tasks.map((task) =>
-      task.id === id
-        ? { ...task, done: !task.done }
+      task.id === id ? { ...task, done: !task.done } : task
+    );
+
+    saveTasks(updatedTasks);
+  };
+
+  // Select a task for editing
+  const editTask = (task) => {
+    setTaskTitle(task.title);
+    setEditingId(task.id);
+  };
+
+  // Save the edited task title
+  const updateTask = () => {
+    if (!taskTitle.trim()) {
+      Alert.alert('Required', 'Please enter a task title.');
+      return;
+    }
+
+    const updatedTasks = tasks.map((task) =>
+      task.id === editingId
+        ? { ...task, title: taskTitle.trim() }
         : task
     );
 
     saveTasks(updatedTasks);
+    setTaskTitle('');
+    setEditingId(null);
+  };
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setTaskTitle('');
+    setEditingId(null);
   };
 
   if (loading) {
@@ -103,10 +132,21 @@ export default function App() {
           onChangeText={setTaskTitle}
         />
 
-        <TouchableOpacity style={styles.button} onPress={addTask}>
-          <Text style={styles.buttonText}>Add</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={editingId ? updateTask : addTask}
+        >
+          <Text style={styles.buttonText}>
+            {editingId ? 'Update' : 'Add'}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {editingId && (
+        <TouchableOpacity onPress={cancelEdit}>
+          <Text style={styles.cancelText}>Cancel Editing</Text>
+        </TouchableOpacity>
+      )}
 
       <FlatList
         data={tasks}
@@ -129,15 +169,23 @@ export default function App() {
               {item.done ? 'Completed' : 'Pending'}
             </Text>
 
-            {/* Mark a task as completed or pending */}
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => toggleTask(item.id)}
-            >
-              <Text style={styles.buttonText}>
-                {item.done ? 'Mark as Pending' : 'Complete Task'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => toggleTask(item.id)}
+              >
+                <Text style={styles.buttonText}>
+                  {item.done ? 'Mark Pending' : 'Complete'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => editTask(item)}
+              >
+                <Text style={styles.buttonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       />
@@ -172,7 +220,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   input: {
     flex: 1,
@@ -183,6 +231,14 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#6041A6',
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  editButton: {
+    backgroundColor: '#E69535',
     padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -212,6 +268,15 @@ const styles = StyleSheet.create({
   taskStatus: {
     color: '#E69535',
     marginTop: 8,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cancelText: {
+    color: '#6041A6',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   empty: {
     textAlign: 'center',
