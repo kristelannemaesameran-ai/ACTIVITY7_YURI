@@ -1,29 +1,62 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Key used to identify saved tasks
+const STORAGE_KEY = 'campus_quest_tasks';
+
 export default function App() {
-  // Store the task list in component state
-  const [tasks, setTasks] = useState([
-    { id: '1', title: 'Complete React Native Activity', done: false },
-    { id: '2', title: 'Review Data Mining', done: false },
-    { id: '3', title: 'Prepare Group Presentation', done: true },
-  ]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load saved tasks when the app first opens
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const savedTasks = await AsyncStorage.getItem(STORAGE_KEY);
+
+        if (savedTasks !== null) {
+          // Convert stored JSON text back into an array
+          setTasks(JSON.parse(savedTasks));
+        }
+      } catch (error) {
+        console.log('Error loading tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTasks();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6041A6" />
+        <Text>Loading your tasks...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campus Quest 🎓</Text>
-      <Text style={styles.subtitle}>My School Tasks</Text>
+      <Text style={styles.subtitle}>My Saved School Tasks</Text>
 
-      {/* Display tasks from state */}
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No saved tasks yet.</Text>
+        }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.taskTitle}>{item.title}</Text>
@@ -43,6 +76,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F0FF',
     padding: 20,
     paddingTop: 60,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F0FF',
+    gap: 10,
   },
   title: {
     fontSize: 28,
@@ -71,5 +111,10 @@ const styles = StyleSheet.create({
   taskStatus: {
     color: '#E69535',
     marginTop: 8,
+  },
+  empty: {
+    textAlign: 'center',
+    color: '#777',
+    marginTop: 30,
   },
 });
