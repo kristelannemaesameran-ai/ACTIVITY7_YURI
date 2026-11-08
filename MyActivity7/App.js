@@ -39,7 +39,7 @@ export default function App() {
     loadTasks();
   }, []);
 
-  // Save the updated task list to device storage
+  // Save changes to AsyncStorage
   const saveTasks = async (updatedTasks) => {
     try {
       await AsyncStorage.setItem(
@@ -70,6 +70,17 @@ export default function App() {
     setTaskTitle('');
   };
 
+  // Update a task's completion status
+  const toggleTask = (id) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === id
+        ? { ...task, done: !task.done }
+        : task
+    );
+
+    saveTasks(updatedTasks);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -84,7 +95,6 @@ export default function App() {
       <Text style={styles.title}>Campus Quest 🎓</Text>
       <Text style={styles.subtitle}>Organize Your School Tasks</Text>
 
-      {/* Input for a new task */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -106,10 +116,28 @@ export default function App() {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.taskTitle}>{item.title}</Text>
+            <Text
+              style={[
+                styles.taskTitle,
+                item.done && styles.completedTask,
+              ]}
+            >
+              {item.title}
+            </Text>
+
             <Text style={styles.taskStatus}>
               {item.done ? 'Completed' : 'Pending'}
             </Text>
+
+            {/* Mark a task as completed or pending */}
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleTask(item.id)}
+            >
+              <Text style={styles.buttonText}>
+                {item.done ? 'Mark as Pending' : 'Complete Task'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       />
@@ -155,9 +183,11 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#6041A6',
-    paddingHorizontal: 20,
+    padding: 12,
     justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 8,
+    marginTop: 10,
   },
   buttonText: {
     color: '#FFFFFF',
@@ -174,6 +204,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: '#333',
+  },
+  completedTask: {
+    textDecorationLine: 'line-through',
+    color: '#999',
   },
   taskStatus: {
     color: '#E69535',
