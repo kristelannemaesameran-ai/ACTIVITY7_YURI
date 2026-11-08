@@ -18,10 +18,11 @@ const STORAGE_KEY = 'campus_quest_tasks';
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [taskTitle, setTaskTitle] = useState('');
+  const [category, setCategory] = useState('Assignment');
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Read saved tasks from the device
+  // Load saved tasks when the app starts
   useEffect(() => {
     const loadTasks = async () => {
       try {
@@ -40,7 +41,7 @@ export default function App() {
     loadTasks();
   }, []);
 
-  // Save updated task data
+  // Save the latest task list
   const saveTasks = async (updatedTasks) => {
     try {
       await AsyncStorage.setItem(
@@ -54,7 +55,7 @@ export default function App() {
     }
   };
 
-  // Create a task
+  // Create a new school task
   const addTask = () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
@@ -64,6 +65,7 @@ export default function App() {
     const newTask = {
       id: Date.now().toString(),
       title: taskTitle.trim(),
+      category,
       done: false,
     };
 
@@ -71,7 +73,7 @@ export default function App() {
     setTaskTitle('');
   };
 
-  // Update completion status
+  // Update the task completion status
   const toggleTask = (id) => {
     const updatedTasks = tasks.map((task) =>
       task.id === id ? { ...task, done: !task.done } : task
@@ -80,13 +82,14 @@ export default function App() {
     saveTasks(updatedTasks);
   };
 
-  // Select a task for editing
+  // Select a task to edit
   const editTask = (task) => {
     setTaskTitle(task.title);
+    setCategory(task.category || 'Assignment');
     setEditingId(task.id);
   };
 
-  // Save the edited title
+  // Save edited task information
   const updateTask = () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
@@ -95,42 +98,39 @@ export default function App() {
 
     const updatedTasks = tasks.map((task) =>
       task.id === editingId
-        ? { ...task, title: taskTitle.trim() }
+        ? { ...task, title: taskTitle.trim(), category }
         : task
     );
 
     saveTasks(updatedTasks);
     setTaskTitle('');
+    setCategory('Assignment');
     setEditingId(null);
   };
 
-  // Cancel editing
+  // Cancel task editing
   const cancelEdit = () => {
     setTaskTitle('');
+    setCategory('Assignment');
     setEditingId(null);
   };
 
-  // Delete a task from the list and storage
+  // Remove a task permanently from the saved list
   const deleteTask = (id) => {
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const updatedTasks = tasks.filter(
-              (task) => task.id !== id
-            );
-
-            saveTasks(updatedTasks);
-          },
+    Alert.alert('Delete Task', 'Remove this task?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          saveTasks(tasks.filter((task) => task.id !== id));
         },
-      ]
-    );
+      },
+    ]);
   };
+
+  const completedCount = tasks.filter((task) => task.done).length;
+  const pendingCount = tasks.length - completedCount;
 
   if (loading) {
     return (
@@ -144,25 +144,66 @@ export default function App() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campus Quest 🎓</Text>
-      <Text style={styles.subtitle}>Organize Your School Tasks</Text>
+      <Text style={styles.subtitle}>Your Student Task Tracker</Text>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter a school task..."
-          value={taskTitle}
-          onChangeText={setTaskTitle}
-        />
+      {/* Task summary */}
+      <View style={styles.summary}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryNumber}>{tasks.length}</Text>
+          <Text style={styles.summaryLabel}>Total</Text>
+        </View>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={editingId ? updateTask : addTask}
-        >
-          <Text style={styles.buttonText}>
-            {editingId ? 'Update' : 'Add'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryNumber}>{pendingCount}</Text>
+          <Text style={styles.summaryLabel}>Pending</Text>
+        </View>
+
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryNumber}>{completedCount}</Text>
+          <Text style={styles.summaryLabel}>Completed</Text>
+        </View>
       </View>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Enter a school task..."
+        value={taskTitle}
+        onChangeText={setTaskTitle}
+      />
+
+      {/* Select a task category */}
+      <Text style={styles.label}>Choose Category</Text>
+
+      <View style={styles.categoryRow}>
+        {['Assignment', 'Exam', 'Project'].map((item) => (
+          <TouchableOpacity
+            key={item}
+            style={[
+              styles.categoryButton,
+              category === item && styles.selectedCategory,
+            ]}
+            onPress={() => setCategory(item)}
+          >
+            <Text
+              style={[
+                styles.categoryText,
+                category === item && styles.selectedCategoryText,
+              ]}
+            >
+              {item}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={editingId ? updateTask : addTask}
+      >
+        <Text style={styles.buttonText}>
+          {editingId ? 'Save Changes' : '+ Add New Task'}
+        </Text>
+      </TouchableOpacity>
 
       {editingId && (
         <TouchableOpacity onPress={cancelEdit}>
@@ -170,9 +211,12 @@ export default function App() {
         </TouchableOpacity>
       )}
 
+      <Text style={styles.sectionTitle}>My School Tasks</Text>
+
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <Text style={styles.empty}>No tasks yet. Add your first task!</Text>
         }
@@ -187,17 +231,21 @@ export default function App() {
               {item.title}
             </Text>
 
+            <Text style={styles.categoryTag}>
+              {item.category || 'Assignment'}
+            </Text>
+
             <Text style={styles.taskStatus}>
-              {item.done ? 'Completed' : 'Pending'}
+              {item.done ? '✓ Completed' : '○ Pending'}
             </Text>
 
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={styles.button}
+                style={styles.completeButton}
                 onPress={() => toggleTask(item.id)}
               >
                 <Text style={styles.buttonText}>
-                  {item.done ? 'Mark Pending' : 'Complete'}
+                  {item.done ? 'Undo' : 'Complete'}
                 </Text>
               </TouchableOpacity>
 
@@ -226,14 +274,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F0FF',
-    padding: 20,
-    paddingTop: 60,
+    padding: 18,
+    paddingTop: 55,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F3F0FF',
+    gap: 10,
   },
   title: {
     fontSize: 28,
@@ -242,59 +291,98 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#777',
     textAlign: 'center',
-    marginVertical: 15,
+    marginVertical: 12,
   },
-  inputContainer: {
+  summary: {
     flexDirection: 'row',
-    marginBottom: 10,
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryNumber: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#6041A6',
+  },
+  summaryLabel: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 4,
   },
   input: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 8,
+    borderRadius: 9,
+    padding: 13,
+    fontSize: 15,
   },
-  button: {
+  label: {
+    color: '#6041A6',
+    fontWeight: 'bold',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  categoryButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  selectedCategory: {
     backgroundColor: '#6041A6',
-    padding: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 10,
   },
-  editButton: {
-    backgroundColor: '#E69535',
-    padding: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 10,
+  categoryText: {
+    color: '#6041A6',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
-  deleteButton: {
-    backgroundColor: '#D9534F',
-    padding: 12,
-    justifyContent: 'center',
+  selectedCategoryText: {
+    color: '#FFFFFF',
+  },
+  addButton: {
+    backgroundColor: '#6041A6',
+    padding: 13,
+    borderRadius: 9,
     alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 10,
+    marginTop: 12,
   },
   buttonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
+  cancelText: {
+    color: '#6041A6',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#6041A6',
+    marginTop: 18,
+    marginBottom: 5,
+  },
   card: {
     backgroundColor: '#FFFFFF',
-    padding: 18,
+    padding: 16,
     borderRadius: 12,
     marginVertical: 7,
     elevation: 2,
   },
   taskTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   },
@@ -302,23 +390,39 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  categoryTag: {
+    color: '#6041A6',
+    fontSize: 12,
+    marginTop: 6,
+  },
   taskStatus: {
-    color: '#E69535',
-    marginTop: 8,
+    color: '#777',
+    marginTop: 6,
   },
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 7,
+    marginTop: 8,
   },
-  cancelText: {
-    color: '#6041A6',
-    textAlign: 'center',
-    marginBottom: 10,
+  completeButton: {
+    backgroundColor: '#6041A6',
+    padding: 10,
+    borderRadius: 7,
+  },
+  editButton: {
+    backgroundColor: '#E69535',
+    padding: 10,
+    borderRadius: 7,
+  },
+  deleteButton: {
+    backgroundColor: '#D9534F',
+    padding: 10,
+    borderRadius: 7,
   },
   empty: {
     textAlign: 'center',
     color: '#777',
-    marginTop: 30,
+    marginTop: 25,
   },
 });
