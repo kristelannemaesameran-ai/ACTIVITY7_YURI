@@ -9,10 +9,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Storage key for the Campus Quest task collection
 const STORAGE_KEY = 'campus_quest_tasks';
 
 export default function App() {
@@ -20,19 +22,27 @@ export default function App() {
   const [taskTitle, setTaskTitle] = useState('');
   const [category, setCategory] = useState('Assignment');
   const [editingId, setEditingId] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Load saved tasks when the app starts
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Read saved tasks when the application first opens
   useEffect(() => {
     const loadTasks = async () => {
       try {
         const savedTasks = await AsyncStorage.getItem(STORAGE_KEY);
 
         if (savedTasks !== null) {
-          setTasks(JSON.parse(savedTasks));
+          // Convert JSON text into a JavaScript array
+          const parsedTasks = JSON.parse(savedTasks);
+
+          if (Array.isArray(parsedTasks)) {
+            setTasks(parsedTasks);
+          }
         }
       } catch (error) {
-        console.log('Error loading tasks:', error);
+        console.log('Loading error:', error);
+        Alert.alert('Error', 'Unable to load saved tasks.');
       } finally {
         setLoading(false);
       }
@@ -41,22 +51,34 @@ export default function App() {
     loadTasks();
   }, []);
 
-  // Save the latest task list
+  // Save the updated task array to device storage
   const saveTasks = async (updatedTasks) => {
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(updatedTasks)
-      );
+    if (saving) return false;
 
+    setSaving(true);
+
+    try {
+      // Convert the task array into JSON text
+      const jsonValue = JSON.stringify(updatedTasks);
+
+      // Store the JSON text locally on the device
+      await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
+
+      // Update the screen after storage succeeds
       setTasks(updatedTasks);
+
+      return true;
     } catch (error) {
-      Alert.alert('Error', 'Unable to save your task.');
+      console.log('Saving error:', error);
+      Alert.alert('Error', 'Unable to save your changes.');
+      return false;
+    } finally {
+      setSaving(false);
     }
   };
 
   // Create a new school task
-  const addTask = () => {
+  const addTask = async () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
       return;
@@ -69,28 +91,35 @@ export default function App() {
       done: false,
     };
 
-    saveTasks([...tasks, newTask]);
-    setTaskTitle('');
+    const success = await saveTasks([...tasks, newTask]);
+
+    if (success) {
+      setTaskTitle('');
+      setCategory('Assignment');
+      Keyboard.dismiss();
+    }
   };
 
-  // Update the task completion status
-  const toggleTask = (id) => {
+  // Update a task's completion status
+  const toggleTask = async (id) => {
     const updatedTasks = tasks.map((task) =>
-      task.id === id ? { ...task, done: !task.done } : task
+      task.id === id
+        ? { ...task, done: !task.done }
+        : task
     );
 
-    saveTasks(updatedTasks);
+    await saveTasks(updatedTasks);
   };
 
-  // Select a task to edit
+  // Select a task and display its information in the input
   const editTask = (task) => {
     setTaskTitle(task.title);
     setCategory(task.category || 'Assignment');
     setEditingId(task.id);
   };
 
-  // Save edited task information
-  const updateTask = () => {
+  // Save changes to an existing task
+  const updateTask = async () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
       return;
@@ -98,55 +127,85 @@ export default function App() {
 
     const updatedTasks = tasks.map((task) =>
       task.id === editingId
-        ? { ...task, title: taskTitle.trim(), category }
+        ? {
+            ...task,
+            title: taskTitle.trim(),
+            category,
+          }
         : task
     );
 
-    saveTasks(updatedTasks);
-    setTaskTitle('');
-    setCategory('Assignment');
-    setEditingId(null);
+    const success = await saveTasks(updatedTasks);
+
+    if (success) {
+      setTaskTitle('');
+      setCategory('Assignment');
+      setEditingId(null);
+      Keyboard.dismiss();
+    }
   };
 
-  // Cancel task editing
+  // Cancel the current editing process
   const cancelEdit = () => {
     setTaskTitle('');
     setCategory('Assignment');
     setEditingId(null);
+    Keyboard.dismiss();
   };
 
-  // Remove a task permanently from the saved list
+  // Delete a selected task
   const deleteTask = (id) => {
-    Alert.alert('Delete Task', 'Remove this task?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          saveTasks(tasks.filter((task) => task.id !== id));
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]);
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const updatedTasks = tasks.filter(
+              (task) => task.id !== id
+            );
+
+            const success = await saveTasks(updatedTasks);
+
+            if (success && editingId === id) {
+              cancelEdit();
+            }
+          },
+        },
+      ]
+    );
   };
 
+  // Calculate task progress
   const completedCount = tasks.filter((task) => task.done).length;
   const pendingCount = tasks.length - completedCount;
 
+  // Show loading screen while reading saved tasks
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6041A6" />
-        <Text>Loading your tasks...</Text>
+        <Text style={styles.loadingText}>Loading Campus Quest...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Application heading */}
+      <Text style={styles.welcome}>WELCOME TO</Text>
       <Text style={styles.title}>Campus Quest 🎓</Text>
-      <Text style={styles.subtitle}>Your Student Task Tracker</Text>
+      <Text style={styles.subtitle}>
+        Your Student Task Tracker
+      </Text>
 
-      {/* Task summary */}
+      {/* Display task statistics */}
       <View style={styles.summary}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryNumber}>{tasks.length}</Text>
@@ -164,15 +223,22 @@ export default function App() {
         </View>
       </View>
 
+      {/* Input field for creating or editing tasks */}
+      <Text style={styles.sectionTitle}>
+        {editingId ? 'Edit Your Task' : 'Add New Task'}
+      </Text>
+
       <TextInput
         style={styles.input}
-        placeholder="Enter a school task..."
+        placeholder="What do you need to accomplish?"
+        placeholderTextColor="#999"
         value={taskTitle}
         onChangeText={setTaskTitle}
+        editable={!saving}
       />
 
-      {/* Select a task category */}
-      <Text style={styles.label}>Choose Category</Text>
+      {/* Choose a task category */}
+      <Text style={styles.label}>Task Category</Text>
 
       <View style={styles.categoryRow}>
         {['Assignment', 'Exam', 'Project'].map((item) => (
@@ -183,6 +249,7 @@ export default function App() {
               category === item && styles.selectedCategory,
             ]}
             onPress={() => setCategory(item)}
+            disabled={saving}
           >
             <Text
               style={[
@@ -196,29 +263,54 @@ export default function App() {
         ))}
       </View>
 
+      {/* Add or update the selected task */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={editingId ? updateTask : addTask}
+        disabled={saving}
       >
-        <Text style={styles.buttonText}>
-          {editingId ? 'Save Changes' : '+ Add New Task'}
+        <Text style={styles.addButtonText}>
+          {saving
+            ? 'Saving...'
+            : editingId
+              ? 'Save Changes'
+              : '+ Add New Task'}
         </Text>
       </TouchableOpacity>
 
       {editingId && (
-        <TouchableOpacity onPress={cancelEdit}>
+        <TouchableOpacity
+          onPress={cancelEdit}
+          disabled={saving}
+        >
           <Text style={styles.cancelText}>Cancel Editing</Text>
         </TouchableOpacity>
       )}
 
+      {/* Display saving status */}
+      {saving && (
+        <View style={styles.savingContainer}>
+          <ActivityIndicator size="small" color="#6041A6" />
+          <Text style={styles.savingText}>Saving your changes...</Text>
+        </View>
+      )}
+
+      {/* Task collection */}
       <Text style={styles.sectionTitle}>My School Tasks</Text>
 
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>No tasks yet. Add your first task!</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyTitle}>No Tasks Yet</Text>
+            <Text style={styles.emptyText}>
+              Add your first school task to get started!
+            </Text>
+          </View>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -231,20 +323,29 @@ export default function App() {
               {item.title}
             </Text>
 
-            <Text style={styles.categoryTag}>
-              {item.category || 'Assignment'}
-            </Text>
+            <View style={styles.taskDetails}>
+              <Text style={styles.categoryTag}>
+                {item.category || 'Assignment'}
+              </Text>
 
-            <Text style={styles.taskStatus}>
-              {item.done ? '✓ Completed' : '○ Pending'}
-            </Text>
+              <Text
+                style={[
+                  styles.status,
+                  item.done ? styles.completedStatus : styles.pendingStatus,
+                ]}
+              >
+                {item.done ? '✓ Completed' : '○ Pending'}
+              </Text>
+            </View>
 
+            {/* Task management buttons */}
             <View style={styles.actionRow}>
               <TouchableOpacity
                 style={styles.completeButton}
                 onPress={() => toggleTask(item.id)}
+                disabled={saving}
               >
-                <Text style={styles.buttonText}>
+                <Text style={styles.actionText}>
                   {item.done ? 'Undo' : 'Complete'}
                 </Text>
               </TouchableOpacity>
@@ -252,43 +353,61 @@ export default function App() {
               <TouchableOpacity
                 style={styles.editButton}
                 onPress={() => editTask(item)}
+                disabled={saving}
               >
-                <Text style={styles.buttonText}>Edit</Text>
+                <Text style={styles.actionText}>Edit</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => deleteTask(item.id)}
+                disabled={saving}
               >
-                <Text style={styles.buttonText}>Delete</Text>
+                <Text style={styles.actionText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
       />
+
+      {/* Application footer */}
+      <Text style={styles.footer}>Campus Quest | Stay Organized!</Text>
     </View>
   );
 }
 
+// Application design and layout
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F0FF',
-    padding: 18,
-    paddingTop: 55,
+    paddingHorizontal: 18,
+    paddingTop: 45,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F3F0FF',
-    gap: 10,
+  },
+  loadingText: {
+    color: '#6041A6',
+    marginTop: 12,
+    fontWeight: 'bold',
+  },
+  welcome: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#999',
+    textAlign: 'center',
+    letterSpacing: 2,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#6041A6',
     textAlign: 'center',
+    marginTop: 5,
   },
   subtitle: {
     fontSize: 14,
@@ -301,31 +420,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: '#FFFFFF',
     padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
+    borderRadius: 14,
+    marginBottom: 16,
+    elevation: 3,
   },
   summaryItem: {
     alignItems: 'center',
   },
   summaryNumber: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: 'bold',
     color: '#6041A6',
   },
   summaryLabel: {
-    color: '#777',
     fontSize: 12,
+    color: '#777',
     marginTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#6041A6',
+    marginBottom: 9,
+    marginTop: 5,
   },
   input: {
     backgroundColor: '#FFFFFF',
     borderRadius: 9,
     padding: 13,
-    fontSize: 15,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#E5DDF7',
   },
   label: {
-    color: '#6041A6',
+    fontSize: 13,
     fontWeight: 'bold',
+    color: '#6041A6',
     marginTop: 12,
     marginBottom: 8,
   },
@@ -335,18 +465,18 @@ const styles = StyleSheet.create({
   },
   categoryButton: {
     flex: 1,
-    padding: 10,
-    borderRadius: 8,
     backgroundColor: '#FFFFFF',
+    padding: 11,
+    borderRadius: 8,
     alignItems: 'center',
   },
   selectedCategory: {
     backgroundColor: '#6041A6',
   },
   categoryText: {
-    color: '#6041A6',
-    fontWeight: 'bold',
     fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6041A6',
   },
   selectedCategoryText: {
     color: '#FFFFFF',
@@ -358,21 +488,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
-  buttonText: {
+  addButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontSize: 14,
   },
   cancelText: {
     color: '#6041A6',
     textAlign: 'center',
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 19,
+    marginTop: 9,
     fontWeight: 'bold',
+  },
+  savingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  savingText: {
     color: '#6041A6',
-    marginTop: 18,
-    marginBottom: 5,
+    fontSize: 12,
+  },
+  listContent: {
+    paddingBottom: 15,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -390,39 +529,81 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  taskDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 9,
+  },
   categoryTag: {
     color: '#6041A6',
     fontSize: 12,
-    marginTop: 6,
+    fontWeight: 'bold',
   },
-  taskStatus: {
-    color: '#777',
-    marginTop: 6,
+  status: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  completedStatus: {
+    color: '#39965A',
+  },
+  pendingStatus: {
+    color: '#E69535',
   },
   actionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-    marginTop: 8,
+    gap: 8,
+    marginTop: 13,
   },
   completeButton: {
+    flex: 1,
     backgroundColor: '#6041A6',
     padding: 10,
     borderRadius: 7,
+    alignItems: 'center',
   },
   editButton: {
+    flex: 1,
     backgroundColor: '#E69535',
     padding: 10,
     borderRadius: 7,
+    alignItems: 'center',
   },
   deleteButton: {
+    flex: 1,
     backgroundColor: '#D9534F',
     padding: 10,
     borderRadius: 7,
+    alignItems: 'center',
   },
-  empty: {
-    textAlign: 'center',
+  actionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 25,
+  },
+  emptyIcon: {
+    fontSize: 35,
+  },
+  emptyTitle: {
+    color: '#6041A6',
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  emptyText: {
     color: '#777',
-    marginTop: 25,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  footer: {
+    color: '#999',
+    textAlign: 'center',
+    fontSize: 11,
+    paddingVertical: 10,
   },
 });
