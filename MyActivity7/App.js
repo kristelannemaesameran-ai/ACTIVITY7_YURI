@@ -4,27 +4,29 @@ import {
   View,
   Text,
   FlatList,
+  TextInput,
+  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Key used to identify saved tasks
 const STORAGE_KEY = 'campus_quest_tasks';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
+  const [taskTitle, setTaskTitle] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Load saved tasks when the app first opens
+  // Load saved tasks when the app starts
   useEffect(() => {
     const loadTasks = async () => {
       try {
         const savedTasks = await AsyncStorage.getItem(STORAGE_KEY);
 
         if (savedTasks !== null) {
-          // Convert stored JSON text back into an array
           setTasks(JSON.parse(savedTasks));
         }
       } catch (error) {
@@ -36,6 +38,37 @@ export default function App() {
 
     loadTasks();
   }, []);
+
+  // Save the updated task list to device storage
+  const saveTasks = async (updatedTasks) => {
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(updatedTasks)
+      );
+
+      setTasks(updatedTasks);
+    } catch (error) {
+      Alert.alert('Error', 'Unable to save your task.');
+    }
+  };
+
+  // Create a new task
+  const addTask = () => {
+    if (!taskTitle.trim()) {
+      Alert.alert('Required', 'Please enter a task title.');
+      return;
+    }
+
+    const newTask = {
+      id: Date.now().toString(),
+      title: taskTitle.trim(),
+      done: false,
+    };
+
+    saveTasks([...tasks, newTask]);
+    setTaskTitle('');
+  };
 
   if (loading) {
     return (
@@ -49,13 +82,27 @@ export default function App() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campus Quest 🎓</Text>
-      <Text style={styles.subtitle}>My Saved School Tasks</Text>
+      <Text style={styles.subtitle}>Organize Your School Tasks</Text>
+
+      {/* Input for a new task */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter a school task..."
+          value={taskTitle}
+          onChangeText={setTaskTitle}
+        />
+
+        <TouchableOpacity style={styles.button} onPress={addTask}>
+          <Text style={styles.buttonText}>Add</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <Text style={styles.empty}>No saved tasks yet.</Text>
+          <Text style={styles.empty}>No tasks yet. Add your first task!</Text>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -82,7 +129,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F3F0FF',
-    gap: 10,
   },
   title: {
     fontSize: 28,
@@ -91,10 +137,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#777',
     textAlign: 'center',
     marginVertical: 15,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 8,
+  },
+  button: {
+    backgroundColor: '#6041A6',
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   card: {
     backgroundColor: '#FFFFFF',
