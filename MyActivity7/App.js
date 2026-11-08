@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,22 @@ import {
   StyleSheet,
 } from 'react-native';
 
-// Sample school task collection
-const initialTasks = [
-  { id: '1', title: 'Complete React Native Activity', done: false },
-  { id: '2', title: 'Review Data Mining', done: false },
-  { id: '3', title: 'Prepare Group Presentation', done: true },
-];
-
 export default function App() {
+  // Store the task list in component state
+  const [tasks, setTasks] = useState([
+    { id: '1', title: 'Complete React Native Activity', done: false },
+    { id: '2', title: 'Review Data Mining', done: false },
+    { id: '3', title: 'Prepare Group Presentation', done: true },
+  ]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campus Quest 🎓</Text>
       <Text style={styles.subtitle}>My School Tasks</Text>
 
-      {/* Display all tasks */}
+      {/* Display tasks from state */}
       <FlatList
-        data={initialTasks}
+        data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.card}>
