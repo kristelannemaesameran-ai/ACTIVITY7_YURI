@@ -1,31 +1,48 @@
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+} from 'react-native';
 
-// Main Campus Quest application
+// Sample school task collection
+const initialTasks = [
+  { id: '1', title: 'Complete React Native Activity', done: false },
+  { id: '2', title: 'Review Data Mining', done: false },
+  { id: '3', title: 'Prepare Group Presentation', done: true },
+];
+
 export default function App() {
   return (
     <View style={styles.container}>
-      {/* Application heading */}
       <Text style={styles.title}>Campus Quest 🎓</Text>
-      <Text style={styles.subtitle}>Your Student Task Tracker</Text>
+      <Text style={styles.subtitle}>My School Tasks</Text>
 
-      {/* Sample school task */}
-      <View style={styles.card}>
-        <Text style={styles.taskTitle}>Complete React Native Activity</Text>
-        <Text style={styles.taskStatus}>Pending</Text>
-      </View>
+      {/* Display all tasks */}
+      <FlatList
+        data={initialTasks}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Text style={styles.taskTitle}>{item.title}</Text>
+            <Text style={styles.taskStatus}>
+              {item.done ? 'Completed' : 'Pending'}
+            </Text>
+          </View>
+        )}
+      />
     </View>
   );
 }
 
-// Application styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F0FF',
     padding: 20,
-    justifyContent: 'center',
+    paddingTop: 60,
   },
   title: {
     fontSize: 28,
@@ -34,18 +51,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#777',
     textAlign: 'center',
     marginVertical: 15,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    padding: 20,
+    padding: 18,
     borderRadius: 12,
+    marginVertical: 7,
+    elevation: 2,
   },
   taskTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#333',
   },
