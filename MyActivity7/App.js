@@ -21,7 +21,7 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load saved tasks when the app starts
+  // Read saved tasks from the device
   useEffect(() => {
     const loadTasks = async () => {
       try {
@@ -40,7 +40,7 @@ export default function App() {
     loadTasks();
   }, []);
 
-  // Save the task list to local storage
+  // Save updated task data
   const saveTasks = async (updatedTasks) => {
     try {
       await AsyncStorage.setItem(
@@ -54,7 +54,7 @@ export default function App() {
     }
   };
 
-  // Add a new task
+  // Create a task
   const addTask = () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
@@ -71,7 +71,7 @@ export default function App() {
     setTaskTitle('');
   };
 
-  // Mark a task as completed or pending
+  // Update completion status
   const toggleTask = (id) => {
     const updatedTasks = tasks.map((task) =>
       task.id === id ? { ...task, done: !task.done } : task
@@ -86,7 +86,7 @@ export default function App() {
     setEditingId(task.id);
   };
 
-  // Save the edited task title
+  // Save the edited title
   const updateTask = () => {
     if (!taskTitle.trim()) {
       Alert.alert('Required', 'Please enter a task title.');
@@ -108,6 +108,28 @@ export default function App() {
   const cancelEdit = () => {
     setTaskTitle('');
     setEditingId(null);
+  };
+
+  // Delete a task from the list and storage
+  const deleteTask = (id) => {
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedTasks = tasks.filter(
+              (task) => task.id !== id
+            );
+
+            saveTasks(updatedTasks);
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -185,6 +207,13 @@ export default function App() {
               >
                 <Text style={styles.buttonText}>Edit</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => deleteTask(item.id)}
+              >
+                <Text style={styles.buttonText}>Delete</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -245,6 +274,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
   },
+  deleteButton: {
+    backgroundColor: '#D9534F',
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 10,
+  },
   buttonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
@@ -271,7 +308,8 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   cancelText: {
     color: '#6041A6',
